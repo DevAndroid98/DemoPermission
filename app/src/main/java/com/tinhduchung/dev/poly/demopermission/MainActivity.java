@@ -5,7 +5,10 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.net.Uri;
+import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -13,21 +16,25 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
+
+import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
     private int STORAGE_PERMISSION_CODE = 1;
     private SharedPreferences sharedPreferences;
     private SharedPreferences.Editor editor;
     ImageView imageView;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        imageView=findViewById(R.id.img);
+        imageView = findViewById(R.id.img);
         Button buttonRequest = findViewById(R.id.button);
         buttonRequest.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -41,13 +48,15 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-       sharedPreferences = getSharedPreferences("aaa", MODE_PRIVATE);
-       editor=sharedPreferences.edit();
-      String uri =sharedPreferences.getString("xx","");
-      if (!uri.equals("")){
-          Toast.makeText(this, "oki", Toast.LENGTH_SHORT).show();
-              imageView.setImageURI(Uri.parse(uri));
-      }
+        sharedPreferences = getSharedPreferences("aaa", MODE_PRIVATE);
+        editor = sharedPreferences.edit();
+        String uri = sharedPreferences.getString("xx", "");
+        if (!uri.equals("")) {
+            Toast.makeText(this, "oki", Toast.LENGTH_SHORT).show();
+
+            imageView.setImageURI(Uri.parse(uri));
+
+        }
 
         imageView.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -55,10 +64,6 @@ public class MainActivity extends AppCompatActivity {
                 imgbackground();
             }
         });
-
-
-
-
 
 
     }
@@ -74,7 +79,7 @@ public class MainActivity extends AppCompatActivity {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
                             ActivityCompat.requestPermissions(MainActivity.this,
-                                    new String[] {Manifest.permission.READ_EXTERNAL_STORAGE}, STORAGE_PERMISSION_CODE);
+                                    new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, STORAGE_PERMISSION_CODE);
                         }
                     })
                     .setNegativeButton("cancel", new DialogInterface.OnClickListener() {
@@ -87,13 +92,13 @@ public class MainActivity extends AppCompatActivity {
 
         } else {
             ActivityCompat.requestPermissions(this,
-                    new String[] {Manifest.permission.READ_EXTERNAL_STORAGE}, STORAGE_PERMISSION_CODE);
+                    new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, STORAGE_PERMISSION_CODE);
         }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (requestCode == STORAGE_PERMISSION_CODE)  {
+        if (requestCode == STORAGE_PERMISSION_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Permission GRANTED", Toast.LENGTH_SHORT).show();
             } else {
@@ -108,15 +113,30 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == 1000 && resultCode == RESULT_OK && data != null) {
             Uri uri = data.getData();
             imageView.setImageURI(uri);
-            editor=sharedPreferences.edit();
-            editor.putString("xx", String.valueOf(uri));
-            editor.commit();
+            editor = sharedPreferences.edit();
+            editor.putString("xx", getRealPathFromURI(uri));
+            editor.apply();
         }
     }
 
     public void imgbackground() {
         Intent intent = new Intent(Intent.ACTION_PICK);
+        intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         intent.setType("image/*");
         startActivityForResult(intent, 1000);
+    }
+
+    private String getRealPathFromURI(Uri contentURI) {
+        String result;
+        Cursor cursor = getContentResolver().query(contentURI, null, null, null, null);
+        if (cursor == null) { // Source is Dropbox or other similar local file path
+            result = contentURI.getPath();
+        } else {
+            cursor.moveToFirst();
+            int idx = cursor.getColumnIndex(MediaStore.Images.ImageColumns.DATA);
+            result = cursor.getString(idx);
+            cursor.close();
+        }
+        return result;
     }
 }
